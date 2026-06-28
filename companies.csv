@@ -1,4 +1,4 @@
-name,search_query,language
-Рубиус,Рубиус новости,ru
-Neuro Sync Lab,Neuro Sync Lab новости,ru
-Девелоника,Девелоника новости,ru
+name,search_query,language,website
+Рубиус,Рубиус,ru,https://rubius.com/ru
+Neuro Sync Lab,Neuro Sync Lab,ru,https://neuro-sync-lab.ru
+Девелоника,Девелоника,ru,https://develonica.ru
