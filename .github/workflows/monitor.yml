@@ -1,0 +1,36 @@
+name: Competitor Monitor
+
+on:
+  schedule:
+    # Runs every day at 08:00 UTC (11:00 Moscow)
+    - cron: "0 8 * * *"
+  workflow_dispatch: # allow manual run from GitHub UI
+
+jobs:
+  monitor:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: "pip"
+
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+
+      - name: Run competitor monitor
+        env:
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+          TELEGRAM_TOKEN: ${{ secrets.TELEGRAM_TOKEN }}
+          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+          # Optional overrides:
+          # MAX_ARTICLES_PER_COMPANY: "5"
+          # GEMINI_MODEL: "gemini-1.5-flash"
+          # COMPANIES_FILE: "companies.csv"
+        run: python monitor.py
