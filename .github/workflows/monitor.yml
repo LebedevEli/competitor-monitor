@@ -29,8 +29,5 @@ jobs:
           GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
           TELEGRAM_TOKEN: ${{ secrets.TELEGRAM_TOKEN }}
           TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
-          # Optional overrides:
-          # MAX_ARTICLES_PER_COMPANY: "5"
-          # GEMINI_MODEL: "gemini-1.5-flash"
-          # COMPANIES_FILE: "companies.csv"
+          GEMINI_MODEL: "gemini-2.0-flash"
         run: python monitor.py
