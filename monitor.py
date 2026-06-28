@@ -89,14 +89,19 @@ def analyse_with_gemini(company: str, articles: list[dict]) -> str:
         "contents": [{"parts": [{"text": prompt}]}],
         "generationConfig": {"temperature": 0.3, "maxOutputTokens": 512},
     }
-    try:
-        resp = requests.post(GEMINI_URL, json=payload, timeout=30)
-        resp.raise_for_status()
-        data = resp.json()
-        return data["candidates"][0]["content"]["parts"][0]["text"].strip()
-    except Exception as e:
-        print(f"  [WARN] Gemini error for '{company}': {e}")
-        return "Анализ недоступен (ошибка Gemini API)."
+    for attempt in range(3):
+        try:
+            if attempt > 0:
+                wait = 15 * attempt
+                print(f"  Retrying Gemini in {wait}s (attempt {attempt+1})...")
+                time.sleep(wait)
+            resp = requests.post(GEMINI_URL, json=payload, timeout=30)
+            resp.raise_for_status()
+            data = resp.json()
+            return data["candidates"][0]["content"]["parts"][0]["text"].strip()
+        except Exception as e:
+            print(f"  [WARN] Gemini error for '{company}': {e}")
+    return "Анализ недоступен (ошибка Gemini API)."
 
 
 # ── Telegram sender ─────────────────────────────────────────────────────────────
@@ -179,7 +184,7 @@ def main():
             send_telegram(report)
         except Exception as e:
             print(f"  [ERROR] Failed to process '{company['name']}': {e}")
-        time.sleep(2)  # polite delay between companies
+        time.sleep(10)  # delay between companies to avoid Gemini rate limits
 
     send_telegram("✅ Мониторинг завершён.")
     print("Done.")
