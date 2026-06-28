@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """
 Competitor monitoring agent.
-Reads companies from CSV → fetches Google News RSS → analyses with Gemini → sends to Telegram.
+Reads companies from CSV → fetches Google News RSS → analyses with Groq → sends to Telegram.
 """
 
 import csv
@@ -15,17 +15,14 @@ from typing import Optional
 import requests
 
 # ── Config from environment variables ──────────────────────────────────────────
-GEMINI_API_KEY = os.environ["GEMINI_API_KEY"]
+GROQ_API_KEY = os.environ["GROQ_API_KEY"]
 TELEGRAM_TOKEN = os.environ["TELEGRAM_TOKEN"]
 TELEGRAM_CHAT_ID = os.environ["TELEGRAM_CHAT_ID"]
 COMPANIES_FILE = os.environ.get("COMPANIES_FILE", "companies.csv")
 MAX_ARTICLES_PER_COMPANY = int(os.environ.get("MAX_ARTICLES_PER_COMPANY", "5"))
-GEMINI_MODEL = os.environ.get("GEMINI_MODEL", "gemini-1.5-flash")
+GROQ_MODEL = os.environ.get("GROQ_MODEL", "llama-3.3-70b-versatile")
 
-GEMINI_URL = (
-    f"https://generativelanguage.googleapis.com/v1beta/models/"
-    f"{GEMINI_MODEL}:generateContent?key={GEMINI_API_KEY}"
-)
+GROQ_URL = "https://api.groq.com/openai/v1/chat/completions"
 
 # ── Google News RSS ─────────────────────────────────────────────────────────────
 
@@ -64,8 +61,8 @@ def fetch_news(query: str, lang: str = "ru", max_items: int = 5) -> list[dict]:
 
 # ── Gemini analysis ─────────────────────────────────────────────────────────────
 
-def analyse_with_gemini(company: str, articles: list[dict]) -> str:
-    """Send article headlines to Gemini and get a structured summary."""
+def analyse_with_groq(company: str, articles: list[dict]) -> str:
+    """Send article headlines to Groq and get a structured summary."""
     if not articles:
         return "Новостей не найдено."
 
@@ -78,30 +75,36 @@ def analyse_with_gemini(company: str, articles: list[dict]) -> str:
 {headlines}
 
 Формат ответа:
-📊 **Краткое резюме** (2–3 предложения)
-⚠️ **Риски / проблемы** (если есть)
-🚀 **Возможности / позитивные события** (если есть)
-🔍 **На что обратить внимание**
+📊 Краткое резюме (2–3 предложения)
+⚠️ Риски / проблемы (если есть)
+🚀 Возможности / позитивные события (если есть)
+🔍 На что обратить внимание
 
 Будь конкретным и лаконичным."""
 
     payload = {
-        "contents": [{"parts": [{"text": prompt}]}],
-        "generationConfig": {"temperature": 0.3, "maxOutputTokens": 512},
+        "model": GROQ_MODEL,
+        "messages": [{"role": "user", "content": prompt}],
+        "temperature": 0.3,
+        "max_tokens": 512,
+    }
+    headers = {
+        "Authorization": f"Bearer {GROQ_API_KEY}",
+        "Content-Type": "application/json",
     }
     for attempt in range(3):
         try:
             if attempt > 0:
-                wait = 15 * attempt
-                print(f"  Retrying Gemini in {wait}s (attempt {attempt+1})...")
+                wait = 10 * attempt
+                print(f"  Retrying Groq in {wait}s (attempt {attempt+1})...")
                 time.sleep(wait)
-            resp = requests.post(GEMINI_URL, json=payload, timeout=30)
+            resp = requests.post(GROQ_URL, json=payload, headers=headers, timeout=30)
             resp.raise_for_status()
             data = resp.json()
-            return data["candidates"][0]["content"]["parts"][0]["text"].strip()
+            return data["choices"][0]["message"]["content"].strip()
         except Exception as e:
-            print(f"  [WARN] Gemini error for '{company}': {e}")
-    return "Анализ недоступен (ошибка Gemini API)."
+            print(f"  [WARN] Groq error for '{company}': {e}")
+    return "Анализ недоступен (ошибка Groq API)."
 
 
 # ── Telegram sender ─────────────────────────────────────────────────────────────
@@ -148,8 +151,8 @@ def build_report(company: dict) -> str:
     print(f"  Fetching news for: {name}")
     articles = fetch_news(company["query"], company["lang"], MAX_ARTICLES_PER_COMPANY)
 
-    print(f"  Analysing {len(articles)} articles with Gemini...")
-    analysis = analyse_with_gemini(name, articles)
+    print(f"  Analysing {len(articles)} articles with Groq...")
+    analysis = analyse_with_groq(name, articles)
 
     # Article links block
     if articles:
